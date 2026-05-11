@@ -10,6 +10,199 @@ const CLAUDE_SETTINGS = {
   },
 };
 
+// Accept git@github.com:org/repo.git, https://github.com/org/repo.git, or org/repo
+function normalizeGithub(input: string): string {
+  const ssh = input.match(/^git@github\.com:(.+?)(?:\.git)?$/);
+  if (ssh) return ssh[1];
+  const https = input.match(/^https?:\/\/github\.com\/(.+?)(?:\.git)?$/);
+  if (https) return https[1];
+  return input.replace(/\.git$/, '');
+}
+
+function cloneUrl(slug: string): string {
+  return `git@github.com:${slug}.git`;
+}
+
+// ── table rendering ──────────────────────────────────────────────────────────
+
+function printTable(headers: string[], rows: string[][]): void {
+  const widths = headers.map((h, i) =>
+    Math.max(h.length, ...rows.map((r) => (r[i] ?? '').length)),
+  );
+  const hr = '+-' + widths.map((w) => '-'.repeat(w)).join('-+-') + '-+';
+  const fmt = (cells: string[]): string =>
+    '| ' + cells.map((c, i) => c.padEnd(widths[i])).join(' | ') + ' |';
+
+  console.log(hr);
+  console.log(fmt(headers));
+  console.log(hr);
+  for (const row of rows) console.log(fmt(row.map((c) => c ?? '')));
+  console.log(hr);
+}
+
+// ── repo editor ──────────────────────────────────────────────────────────────
+
+async function editRepos(
+  ask: (q: string) => Promise<string>,
+  initial: Record<string, Repo>,
+): Promise<Record<string, Repo>> {
+  const repos = { ...initial };
+
+  while (true) {
+    console.log('\nRepositories:');
+    const repoList = Object.entries(repos);
+    if (repoList.length === 0) {
+      console.log('  (none)');
+    } else {
+      printTable(
+        ['Name', 'Path', 'GitHub'],
+        repoList.map(([name, r]) => [name, r.path, r.github ?? '']),
+      );
+    }
+    console.log('  [a]dd  [r]remove  [enter] done');
+
+    const cmd = (await ask('  > ')).trim().toLowerCase();
+    if (!cmd) {
+      if (Object.keys(repos).length === 0) {
+        console.log('  At least one repo is required.');
+        continue;
+      }
+      break;
+    }
+
+    if (cmd === 'a') {
+      const name = (await ask('  repo name: ')).trim();
+      if (!name) continue;
+      const path = (await ask(`  path [./${name}]: `)).trim() || `./${name}`;
+      const githubRaw = (await ask('  github remote (optional): ')).trim();
+      const github = githubRaw ? normalizeGithub(githubRaw) : undefined;
+      repos[name] = { path, ...(github ? { github } : {}) };
+    } else if (cmd === 'r') {
+      const name = (await ask('  repo name to remove: ')).trim();
+      if (repos[name]) {
+        delete repos[name];
+      } else {
+        console.log(`  Unknown repo '${name}'`);
+      }
+    }
+  }
+
+  return repos;
+}
+
+// ── agent editor ─────────────────────────────────────────────────────────────
+
+async function editAgents(
+  ask: (q: string) => Promise<string>,
+  initial: Agent[],
+  repos: Record<string, Repo>,
+): Promise<Agent[]> {
+  const agents = [...initial];
+
+  while (true) {
+    console.log('\nAgents:');
+    printTable(
+      ['Name', 'Role', 'Repo', 'Rel', 'Description'],
+      agents.map((a) => [
+        a.name,
+        a.role,
+        a.repo ?? '-',
+        a.reviewedBy ? `← ${a.reviewedBy}` : a.reviews ? `→ ${a.reviews}` : '-',
+        a.description.slice(0, 40) + (a.description.length > 40 ? '…' : ''),
+      ]),
+    );
+    console.log('  [a]dd  [r]remove  [enter] done');
+
+    const cmd = (await ask('  > ')).trim().toLowerCase();
+    if (!cmd) break;
+
+    if (cmd === 'a') {
+      const name = (await ask('  agent name: ')).trim();
+      if (!name) continue;
+      if (agents.find((a) => a.name === name)) {
+        console.log(`  Agent '${name}' already exists`);
+        continue;
+      }
+
+      const repoNames = Object.keys(repos);
+      const repoInput = (await ask(`  repo [${repoNames.join('/')}]: `)).trim();
+      const repo = repos[repoInput] ? repoInput : repoNames[0];
+
+      const roleInput = (await ask(`  role [author/qa]: `)).trim();
+      const role = roleInput === 'qa' ? 'qa' : 'author';
+
+      const reviewedBy =
+        role === 'author'
+          ? (await ask(`  who QAs '${name}'? (optional): `)).trim() || undefined
+          : undefined;
+      const reviews =
+        role === 'qa'
+          ? (await ask(`  who does '${name}' review? (optional): `)).trim() || undefined
+          : undefined;
+
+      const description = (await ask(`  description: `)).trim();
+      agents.push({ name, role, repo, description, reviewedBy, reviews });
+    } else if (cmd === 'r') {
+      const name = (await ask('  agent name to remove: ')).trim();
+      const idx = agents.findIndex((a) => a.name === name);
+      if (idx === -1) {
+        console.log(`  Unknown agent '${name}'`);
+      } else if (agents[idx].role === 'coordinator') {
+        console.log(`  Cannot remove the coordinator`);
+      } else {
+        agents.splice(idx, 1);
+      }
+    }
+  }
+
+  return agents;
+}
+
+// ── service editor ───────────────────────────────────────────────────────────
+
+async function editServices(
+  ask: (q: string) => Promise<string>,
+  initial: Array<{ name: string; cwd: string; command: string }>,
+): Promise<Array<{ name: string; cwd: string; command: string }>> {
+  const services = [...initial];
+
+  while (true) {
+    console.log('\nService windows:');
+    if (services.length === 0) {
+      console.log('  (none)');
+    } else {
+      printTable(
+        ['Name', 'CWD', 'Command'],
+        services.map((s) => [s.name, s.cwd, s.command]),
+      );
+    }
+    console.log('  [a]dd  [r]remove  [enter] done');
+
+    const cmd = (await ask('  > ')).trim().toLowerCase();
+    if (!cmd) break;
+
+    if (cmd === 'a') {
+      const name = (await ask('  service name: ')).trim();
+      if (!name) continue;
+      const cwd = (await ask(`  cwd [./${name}]: `)).trim() || `./${name}`;
+      const command = (await ask('  start command: ')).trim();
+      services.push({ name, cwd, command });
+    } else if (cmd === 'r') {
+      const name = (await ask('  service name to remove: ')).trim();
+      const idx = services.findIndex((s) => s.name === name);
+      if (idx === -1) {
+        console.log(`  Unknown service '${name}'`);
+      } else {
+        services.splice(idx, 1);
+      }
+    }
+  }
+
+  return services;
+}
+
+// ── main ─────────────────────────────────────────────────────────────────────
+
 export async function init(cwd: string = process.cwd()): Promise<void> {
   const { createInterface } = await import('readline');
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -25,79 +218,26 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
   let services: Array<{ name: string; cwd: string; command: string }>;
 
   try {
-    // Workspace name
     workspace = (await ask('Workspace name (e.g. my-project): ')).trim();
     session =
       (await ask(`tmux session name [${workspace.toLowerCase().replace(/\s+/g, '-')}]: `)).trim() ||
       workspace.toLowerCase().replace(/\s+/g, '-');
 
-    // Repos
-    console.log('\nDefine your sub-repositories (empty name to finish):');
-    repos = {};
-    while (true) {
-      const name = (await ask('  repo name (e.g. server, web): ')).trim();
-      if (!name) break;
-      const path = (await ask(`  path for '${name}' [./${name}]: `)).trim() || `./${name}`;
-      const github = (await ask(`  github remote for '${name}' (optional): `)).trim();
-      repos[name] = { path, ...(github ? { github } : {}) };
-    }
+    repos = await editRepos(ask, {});
 
-    if (Object.keys(repos).length === 0) {
-      console.error('At least one repo is required.');
-      return;
-    }
-
-    // Coordinator (boss)
     bossName = (await ask('\nCoordinator agent name [boss]: ')).trim() || 'boss';
 
-    // Agents
-    console.log(
-      '\nDefine your agents (empty name to finish). Add coordinator first if you want custom description:',
-    );
-    agents = [
+    agents = await editAgents(ask, [
       {
         name: bossName,
         role: 'coordinator',
         repo: null,
-        description: `Project coordinator. Directs the agent team, breaks down work, owns merges to master in each repo. Never implements features directly — delegates to authors.`,
+        description:
+          'Project coordinator. Directs the agent team, breaks down work, owns merges to master in each repo. Never implements features directly — delegates to authors.',
       },
-    ];
+    ], repos);
 
-    while (true) {
-      const name = (await ask('  agent name (e.g. mason, sally): ')).trim();
-      if (!name) break;
-
-      const repoNames = Object.keys(repos);
-      const repoInput = (await ask(`  repo [${repoNames.join('/')}]: `)).trim();
-      const repo = repos[repoInput] ? repoInput : repoNames[0];
-
-      const roleInput = (await ask(`  role for '${name}' [author/qa]: `)).trim();
-      const role = roleInput === 'qa' ? 'qa' : 'author';
-
-      const reviewedBy =
-        role === 'author'
-          ? (await ask(`  who QAs '${name}'? (agent name, optional): `)).trim() || undefined
-          : undefined;
-      const reviews =
-        role === 'qa'
-          ? (await ask(`  who does '${name}' review? (agent name, optional): `)).trim() || undefined
-          : undefined;
-
-      const description = (await ask(`  one-line description for '${name}': `)).trim();
-
-      agents.push({ name, role, repo, description, reviewedBy, reviews });
-    }
-
-    // Services
-    console.log('\nDefine service windows (empty name to finish):');
-    services = [];
-    while (true) {
-      const name = (await ask('  service name (e.g. backend, vite): ')).trim();
-      if (!name) break;
-      const serviceCwd = (await ask(`  cwd for '${name}' [./${name}]: `)).trim() || `./${name}`;
-      const command = (await ask(`  start command for '${name}': `)).trim();
-      services.push({ name, cwd: serviceCwd, command });
-    }
+    services = await editServices(ask, []);
   } finally {
     rl.close();
   }
@@ -125,7 +265,7 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
     if (!existsSync(repoPath)) {
       if (repo.github) {
         console.log(`\nCloning ${repo.github} → ${repo.path}`);
-        execFileSync('git', ['clone', `git@github.com:${repo.github}.git`, repoPath]);
+        execFileSync('git', ['clone', cloneUrl(repo.github), repoPath]);
       } else {
         console.log(`\nCreating empty repo at ${repo.path}`);
         mkdirSync(repoPath, { recursive: true });
@@ -135,7 +275,6 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
       console.log(`\n✓ ${repoName} already exists at ${repo.path}`);
     }
 
-    // Set up worktrees for agents assigned to this repo
     const repoAgents = agents.filter((a) => a.repo === repoName);
     for (const agent of repoAgents) {
       const worktreePath = resolve(cwd, `${session}-${agent.name}`);
@@ -147,11 +286,10 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
       }
 
       try {
-        // Create branch if it doesn't exist
         execFileSync('git', ['checkout', '-b', branch], { cwd: repoPath, stdio: 'ignore' });
         execFileSync('git', ['checkout', '-'], { cwd: repoPath, stdio: 'ignore' });
       } catch {
-        // branch already exists, that's fine
+        // branch already exists
       }
 
       try {
@@ -161,12 +299,11 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
         console.warn(`  ⚠ could not create worktree for ${agent.name}:`, err);
       }
 
-      // Seed .claude/settings.local.json
       seedClaudeSettings(worktreePath);
     }
   }
 
-  // Seed .claude/settings.local.json for coordinator (in first repo's main worktree)
+  // Seed coordinator settings in first repo's main worktree
   const firstRepoPath = resolve(cwd, Object.values(repos)[0].path);
   seedClaudeSettings(firstRepoPath);
 
@@ -182,7 +319,6 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
     console.log('\n✓ beads already initialized');
   }
 
-  // Write .gitignore
   writeGitignore(cwd, repos, agents, session);
 
   console.log('\n✅ camper workspace ready. Run: camper start\n');
