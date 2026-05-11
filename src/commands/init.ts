@@ -218,15 +218,14 @@ async function editServices(
   const services = [...initial];
 
   while (true) {
-    console.log('\nService windows:');
-    if (services.length === 0) {
-      console.log('  (none)');
-    } else {
-      printTable(
-        ['Name', 'CWD', 'Command'],
-        services.map((s) => [s.name, s.cwd, s.command]),
-      );
-    }
+    console.log('\ntmux windows for services:');
+    printTable(
+      ['Name', 'CWD', 'Command'],
+      [
+        ['watcher', '(workspace root)', 'camper watch  [built-in]'],
+        ...services.map((s) => [s.name, s.cwd, s.command]),
+      ],
+    );
     console.log('  [a]dd  [r]remove  [enter] done');
 
     const cmd = (await ask('  > ')).trim().toLowerCase();
@@ -240,6 +239,10 @@ async function editServices(
       services.push({ name, cwd, command });
     } else if (cmd === 'r') {
       const name = (await ask('  service name to remove: ')).trim();
+      if (name === 'watcher') {
+        console.log('  watcher is a built-in window and cannot be removed.');
+        continue;
+      }
       const idx = services.findIndex((s) => s.name === name);
       if (idx === -1) {
         console.log(`  Unknown service '${name}'`);
