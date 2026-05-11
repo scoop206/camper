@@ -13,14 +13,16 @@ export function status(config: CamperConfig): void {
   console.log(`Session '${session}': running (${windows.length} windows)\n`);
 
   // Watcher
-  const watcherOk = windowExists(session, 'watcher');
-  console.log(`  watcher   ${watcherOk ? '✓' : '✗ MISSING'}`);
+  const watcherWindow = config.watcher!.tmuxWindow!;
+  const watcherOk = windowExists(session, watcherWindow);
+  console.log(`  ${watcherWindow.padEnd(12)} ${watcherOk ? '✓' : '✗ MISSING'} (watcher)`);
 
   // Agents
   for (const agent of agents) {
-    const ok = windowExists(session, agent.name);
+    const win = agent.tmuxWindow!;
+    const ok = windowExists(session, win);
     const role = agent.role === 'coordinator' ? '(coordinator)' : `(${agent.role})`;
-    console.log(`  ${agent.name.padEnd(12)} ${ok ? '✓' : '✗ MISSING'} ${role}`);
+    console.log(`  ${win.padEnd(12)} ${ok ? '✓' : '✗ MISSING'} ${role}`);
   }
 
   // Services

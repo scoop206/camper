@@ -8,7 +8,7 @@ export function compact(config: CamperConfig, agentName?: string): void {
     : config.agents.filter((a) => a.role !== 'coordinator');
 
   for (const agent of targets) {
-    send(config.session, agent.name, '/compact');
-    console.log(`↩ /compact → ${agent.name}`);
+    send(config.session, agent.tmuxWindow!, '/compact');
+    console.log(`↩ /compact → ${agent.tmuxWindow!}`);
   }
 }

@@ -8,7 +8,7 @@ export function clear(config: CamperConfig, agentName?: string): void {
     : config.agents.filter((a) => a.role !== 'coordinator');
 
   for (const agent of targets) {
-    send(config.session, agent.name, '/clear');
-    console.log(`↺ /clear → ${agent.name}`);
+    send(config.session, agent.tmuxWindow!, '/clear');
+    console.log(`↺ /clear → ${agent.tmuxWindow!}`);
   }
 }

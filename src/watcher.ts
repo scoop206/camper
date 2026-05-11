@@ -14,7 +14,8 @@ interface Issue {
 
 export function startWatcher(config: CamperConfig, root: string): void {
   const issuesFile = resolve(root, config.watcher!.issuesFile!);
-  const coordinatorWindow = config.coordinator;
+  const coordinatorAgent = config.agents.find((a) => a.name === config.coordinator);
+  const coordinatorWindow = coordinatorAgent?.tmuxWindow ?? config.coordinator;
   const session = config.session;
 
   // Seed last-check to now so old closures don't fire on startup

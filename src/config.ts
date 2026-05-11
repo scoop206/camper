@@ -11,7 +11,8 @@ export interface Agent {
   role: 'coordinator' | 'developer' | 'qa';
   repo: string | null; // null = coordinator, operates across repos
   branch?: string; // defaults to agent/<name>
-  worktree?: string; // defaults to ../<workspace>-<name>
+  worktree?: string; // defaults to <repo>-<name>
+  tmuxWindow?: string; // defaults to agent name
   reviews?: string; // qa agent: name of the developer this agent reviews
   description: string; // injected into CLAUDE.md
 }
@@ -37,6 +38,7 @@ export interface CamperConfig {
   watcher?: {
     interval?: number; // seconds, default 5
     issuesFile?: string; // default .beads/issues.jsonl
+    tmuxWindow?: string; // default 'watcher'
   };
   claude?: {
     command?: string; // default: claude --model sonnet --permission-mode auto
@@ -88,6 +90,7 @@ function applyDefaults(config: CamperConfig, root: string): CamperConfig {
     watcher: {
       interval: 5,
       issuesFile: '.beads/issues.jsonl',
+      tmuxWindow: 'watcher',
       ...config.watcher,
     },
     claude: {
@@ -97,6 +100,7 @@ function applyDefaults(config: CamperConfig, root: string): CamperConfig {
     agents: config.agents.map((agent) => ({
       ...agent,
       branch: agent.branch ?? (agent.role === 'coordinator' ? 'master' : `agent/${agent.name}`),
+      tmuxWindow: agent.tmuxWindow ?? agent.name,
       worktree:
         agent.worktree ??
         (agent.role === 'coordinator'

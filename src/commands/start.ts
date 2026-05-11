@@ -14,20 +14,22 @@ export function start(config: CamperConfig, root: string): void {
   const coordinator = getCoordinator(config);
   const coordCwd = coordinator.worktree ?? resolve(root, '.');
 
+  const watcherWindow = config.watcher!.tmuxWindow!;
+
   // Watcher window — first so it's always index 0
-  tmux.newSession(session, 'watcher', coordCwd);
-  tmux.send(session, 'watcher', `node ${process.argv[1]} watch`);
+  tmux.newSession(session, watcherWindow, coordCwd);
+  tmux.send(session, watcherWindow, `node ${process.argv[1]} watch`);
 
   // Coordinator window
-  tmux.newWindow(session, coordinator.name, coordCwd);
-  tmux.send(session, coordinator.name, config.claude!.command!);
+  tmux.newWindow(session, coordinator.tmuxWindow!, coordCwd);
+  tmux.send(session, coordinator.tmuxWindow!, config.claude!.command!);
 
   // Agent windows
   for (const agent of config.agents) {
     if (agent.role === 'coordinator') continue;
     const cwd = agent.worktree ?? resolve(root, `${session}-${agent.name}`);
-    tmux.newWindow(session, agent.name, cwd);
-    tmux.send(session, agent.name, config.claude!.command!);
+    tmux.newWindow(session, agent.tmuxWindow!, cwd);
+    tmux.send(session, agent.tmuxWindow!, config.claude!.command!);
   }
 
   // Service windows
@@ -40,6 +42,6 @@ export function start(config: CamperConfig, root: string): void {
   // Local scratch
   tmux.newWindow(session, 'local', coordCwd);
 
-  tmux.selectWindow(session, coordinator.name);
+  tmux.selectWindow(session, coordinator.tmuxWindow!);
   tmux.attach(session);
 }
