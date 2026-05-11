@@ -32,6 +32,65 @@ export function sync(config: CamperConfig, root: string): void {
   }
 
   console.log('\n✅ CLAUDE.md synced to all branches.');
+
+  // Write agent identities and roster into beads so bd prime surfaces them
+  syncBeadsIdentities(config, root);
+}
+
+function syncBeadsIdentities(config: CamperConfig, root: string): void {
+  try {
+    execFileSync('bd', ['--version'], { cwd: root, stdio: 'ignore' });
+  } catch {
+    console.warn('  ⚠ bd not found — skipping beads identity sync');
+    return;
+  }
+
+  // Team roster memory — one shared fact all agents see
+  const rosterLines = config.agents.map((a) => {
+    const reviewer = getReviewer(config, a.name);
+    const pair = reviewer ? ` [reviewed by ${reviewer.name}]` : a.reviews ? ` [reviews ${a.reviews}]` : '';
+    return `  ${titleCase(a.name)} — ${a.role}${pair} — ${a.description}`;
+  });
+
+  const rosterMemory = `CAMPER TEAM ROSTER (${config.workspace})\n${rosterLines.join('\n')}`;
+
+  rememberTagged(root, 'camper:roster', rosterMemory);
+  console.log('  ✓ beads: team roster');
+
+  // Per-agent identity memory
+  for (const agent of config.agents) {
+    const reviewer = getReviewer(config, agent.name);
+    const worktreeHint = agent.worktree ?? `${agent.repo ? `${agent.repo}-${agent.name}` : config.session}`;
+    const branch = agent.branch ?? (agent.role === 'coordinator' ? 'master' : `agent/${agent.name}`);
+
+    const pairLine = reviewer
+      ? `Your output is reviewed by ${titleCase(reviewer.name)} before it ships to master.`
+      : agent.reviews
+        ? `You review ${titleCase(agent.reviews)}'s output before it ships to master.`
+        : '';
+
+    const identityMemory = [
+      `CAMPER AGENT IDENTITY: ${titleCase(agent.name)}`,
+      `Role: ${agent.role}`,
+      `Workspace: ${config.workspace}`,
+      `Worktree: ${worktreeHint}`,
+      `Branch: ${branch}`,
+      `Description: ${agent.description}`,
+      pairLine,
+      `Coordinator: ${config.coordinator}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    rememberTagged(root, `camper:identity:${agent.name.toLowerCase()}`, identityMemory);
+    console.log(`  ✓ beads: identity for ${agent.name}`);
+  }
+
+  console.log('  ✓ beads identities written — agents will see them via bd prime');
+}
+
+function rememberTagged(root: string, key: string, body: string): void {
+  execFileSync('bd', ['remember', body, '--key', key], { cwd: root, stdio: 'ignore' });
 }
 
 function pushToRef(repoPath: string, content: string, branch: string, label: string): void {
