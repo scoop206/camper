@@ -1,3 +1,4 @@
+import { existsSync } from 'fs';
 import { resolve } from 'path';
 import type { CamperConfig } from '../config.js';
 import { getCoordinator } from '../config.js';
@@ -27,7 +28,8 @@ export function start(config: CamperConfig, root: string): void {
   // Agent windows
   for (const agent of config.agents) {
     if (agent.role === 'coordinator') continue;
-    const cwd = agent.worktree ?? resolve(root, `${session}-${agent.name}`);
+    const resolved = agent.worktree ?? resolve(root, `${session}-${agent.name}`);
+    const cwd = existsSync(resolved) ? resolved : root;
     tmux.newWindow(session, agent.tmuxWindow!, cwd);
     tmux.send(session, agent.tmuxWindow!, config.claude!.command!);
   }
