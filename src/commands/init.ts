@@ -117,9 +117,10 @@ async function editAgents(
         a.description.slice(0, 40) + (a.description.length > 40 ? '…' : ''),
       ]),
     );
-    console.log('  [a]dd agent');
-    console.log('  add an adversarial [p]air of agents');
-    console.log('  [u]npair  [r]emove  [enter] done');
+    console.log('  [a] add agent');
+    console.log('  [p] add an adversarial pair of agents');
+    console.log('  [r] remove');
+    console.log('  [enter] done');
 
     const cmd = (await ask('  > ')).trim().toLowerCase();
     if (!cmd) break;
@@ -172,25 +173,35 @@ async function editAgents(
       const secondAgent: Agent = { name: secondName, role: secondRole === 'qa' ? 'qa' : 'developer', repo, description: secondDesc, reviews: firstName };
       agents.push(firstAgent, secondAgent);
       console.log(`\n  ✓ Paired: ${firstName} (${firstAgent.role}) ⟷ ${secondName} (${secondAgent.role})`);
-    } else if (cmd === 'u') {
-      const qaName = (await ask('  qa agent to unpair: ')).trim();
-      const qa = agents.find((a) => a.name === qaName);
-      if (!qa) { console.log(`  Unknown agent '${qaName}'`); continue; }
-      delete qa.reviews;
-      console.log(`  ✓ ${qaName} unpaired`);
     } else if (cmd === 'r') {
       const name = (await ask('  agent name to remove: ')).trim();
       const idx = agents.findIndex((a) => a.name === name);
       if (idx === -1) {
         console.log(`  Unknown agent '${name}'`);
-      } else if (agents[idx].role === 'coordinator') {
+        continue;
+      }
+      if (agents[idx].role === 'coordinator') {
         console.log(`  Cannot remove the coordinator`);
-      } else {
-        // Clear any reviews relationship involving this agent
-        for (const a of agents) {
-          if (a.reviews === name) delete a.reviews;
+        continue;
+      }
+      // Check if this agent is part of a pair
+      const partner =
+        agents[idx].reviews
+          ? agents.find((a) => a.name === agents[idx].reviews)
+          : agents.find((a) => a.reviews === name);
+      if (partner) {
+        const confirm = (await ask(`  ⚠ '${name}' is paired with '${partner.name}'. Remove both? [y/N]: `)).trim().toLowerCase();
+        if (confirm !== 'y') {
+          console.log('  Cancelled.');
+          continue;
         }
+        const partnerIdx = agents.findIndex((a) => a.name === partner.name);
+        agents.splice(Math.max(idx, partnerIdx), 1);
+        agents.splice(Math.min(idx, partnerIdx), 1);
+        console.log(`  ✓ Removed '${name}' and '${partner.name}'`);
+      } else {
         agents.splice(idx, 1);
+        console.log(`  ✓ Removed '${name}'`);
       }
     }
   }
