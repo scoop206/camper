@@ -31,7 +31,7 @@ export interface WindowConfig {
 export interface CamperConfig {
   workspace: string;         // human-readable name
   session: string;           // tmux session name
-  coordinator: string;       // agent name that acts as Mayor
+  coordinator: string;       // agent name that acts as Boss
   repos: Record<string, Repo>;
   agents: Agent[];
   services?: Service[];

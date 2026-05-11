@@ -1,14 +1,14 @@
 {
   "workspace": "my-project",
   "session": "mp",
-  "coordinator": "mayor",
+  "coordinator": "boss",
   "repos": {
     "server": { "path": "./server", "github": "org/my-project-server" },
     "web":    { "path": "./web",    "github": "org/my-project-web" }
   },
   "agents": [
     {
-      "name": "mayor",
+      "name": "boss",
       "role": "coordinator",
       "repo": null,
       "description": "Project coordinator. Directs the agent team, breaks down work, owns merges to master. Never implements features directly — delegates to Mason (backend) and Sally (frontend)."

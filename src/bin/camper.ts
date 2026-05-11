@@ -8,6 +8,7 @@ import { clear } from '../commands/clear.js';
 import { status } from '../commands/status.js';
 import { startWatcher } from '../watcher.js';
 import { killSession } from '../tmux.js';
+import { init } from '../commands/init.js';
 
 const program = new Command();
 
@@ -15,6 +16,13 @@ program
   .name('camper')
   .description('Multi-agent Claude Code team manager')
   .version('0.1.0');
+
+program
+  .command('init')
+  .description('Scaffold a new camper workspace interactively')
+  .action(async () => {
+    await init(process.cwd());
+  });
 
 program
   .command('start')
