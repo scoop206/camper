@@ -13,16 +13,16 @@ export function start(config: CamperConfig, root: string): void {
   }
 
   const coordinator = getCoordinator(config);
-  const coordCwd = coordinator.worktree ?? resolve(root, '.');
+  const muxCwd = config.startWorkingDir!;
 
   const watcherWindow = config.watcher!.tmuxWindow!;
 
   // Watcher window — first so it's always index 0
-  tmux.newSession(session, watcherWindow, coordCwd);
+  tmux.newSession(session, watcherWindow, muxCwd);
   tmux.send(session, watcherWindow, `node ${process.argv[1]} watch`);
 
   // Coordinator window
-  tmux.newWindow(session, coordinator.tmuxWindow!, coordCwd);
+  tmux.newWindow(session, coordinator.tmuxWindow!, muxCwd);
   tmux.send(session, coordinator.tmuxWindow!, config.claude!.command!);
 
   // Agent windows
@@ -42,7 +42,7 @@ export function start(config: CamperConfig, root: string): void {
   }
 
   // Local scratch
-  tmux.newWindow(session, 'local', coordCwd);
+  tmux.newWindow(session, 'local', muxCwd);
 
   tmux.selectWindow(session, coordinator.tmuxWindow!);
   tmux.attach(session);

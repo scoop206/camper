@@ -32,6 +32,7 @@ export interface CamperConfig {
   workspace: string; // human-readable name
   session: string; // tmux session name
   coordinator: string; // agent name that acts as Boss
+  startWorkingDir?: string; // cwd for boss, watcher, and local windows; defaults to workspace root
   repos: Record<string, Repo>;
   agents: Agent[];
   services?: Service[];
@@ -87,6 +88,7 @@ function findConfig(cwd: string): string | null {
 function applyDefaults(config: CamperConfig, root: string): CamperConfig {
   return {
     ...config,
+    startWorkingDir: config.startWorkingDir ? resolve(root, config.startWorkingDir) : root,
     watcher: {
       interval: 5,
       issuesFile: '.beads/issues.jsonl',
@@ -104,7 +106,7 @@ function applyDefaults(config: CamperConfig, root: string): CamperConfig {
       worktree:
         agent.worktree ??
         (agent.role === 'coordinator'
-          ? resolve(root, config.repos[Object.keys(config.repos)[0]]?.path ?? '.')
+          ? root
           : resolve(root, `${config.session}-${agent.name}`)),
     })),
   };
