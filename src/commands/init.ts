@@ -117,7 +117,9 @@ async function editAgents(
         a.description.slice(0, 40) + (a.description.length > 40 ? '…' : ''),
       ]),
     );
-    console.log('  [a]dd agent  [p]air agents  [u]npair  [r]emove  [enter] done');
+    console.log('  [a]dd agent');
+    console.log('  add an adversarial [p]air of agents');
+    console.log('  [u]npair  [r]emove  [enter] done');
 
     const cmd = (await ask('  > ')).trim().toLowerCase();
     if (!cmd) break;
@@ -140,18 +142,36 @@ async function editAgents(
       const description = (await ask(`  description: `)).trim();
       agents.push({ name, role, repo, description });
     } else if (cmd === 'p') {
-      const devName = (await ask('  developer agent: ')).trim();
-      const qaName = (await ask('  qa agent: ')).trim();
-      const dev = agents.find((a) => a.name === devName);
-      const qa = agents.find((a) => a.name === qaName);
-      if (!dev) { console.log(`  Unknown agent '${devName}'`); continue; }
-      if (!qa) { console.log(`  Unknown agent '${qaName}'`); continue; }
-      // Clear any existing reviews pointing at these agents
-      for (const a of agents) {
-        if (a.reviews === devName || a.reviews === qaName) delete a.reviews;
+      const repoNames = Object.keys(repos);
+      const repoInput = (await ask(`\nRepo for the Agent Pair [${repoNames.join('/')}]: `)).trim();
+      const repo = repos[repoInput] ? repoInput : repoNames[0];
+
+      console.log(
+        '  Note: First Agent will be assumed to be author/creator. Second will be assumed to be recipient/checker.',
+      );
+
+      const firstName = (await ask('\n  First Agent name: ')).trim();
+      if (!firstName) continue;
+      const firstRole = (await ask(`  First Agent role [developer]: `)).trim() || 'developer';
+      const firstDesc = (await ask(`  First Agent description: `)).trim();
+
+      const secondName = (await ask('\n  Second Agent name: ')).trim();
+      if (!secondName) continue;
+      const secondRole = (await ask(`  Second Agent role [qa]: `)).trim() || 'qa';
+      const secondDesc = (await ask(`  Second Agent description: `)).trim();
+
+      // Remove any existing agents with these names and clear stale pairings
+      for (let i = agents.length - 1; i >= 0; i--) {
+        if (agents[i].name === firstName || agents[i].name === secondName) agents.splice(i, 1);
       }
-      qa.reviews = devName;
-      console.log(`  ✓ ${qaName} will review ${devName}`);
+      for (const a of agents) {
+        if (a.reviews === firstName || a.reviews === secondName) delete a.reviews;
+      }
+
+      const firstAgent: Agent = { name: firstName, role: firstRole === 'qa' ? 'qa' : 'developer', repo, description: firstDesc };
+      const secondAgent: Agent = { name: secondName, role: secondRole === 'qa' ? 'qa' : 'developer', repo, description: secondDesc, reviews: firstName };
+      agents.push(firstAgent, secondAgent);
+      console.log(`\n  ✓ Paired: ${firstName} (${firstAgent.role}) ⟷ ${secondName} (${secondAgent.role})`);
     } else if (cmd === 'u') {
       const qaName = (await ask('  qa agent to unpair: ')).trim();
       const qa = agents.find((a) => a.name === qaName);
