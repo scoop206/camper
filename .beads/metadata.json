@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "camper",
+  "project_id": "2f767d5a-5b83-446b-b9d9-0e27f48f7c9a"
+}
