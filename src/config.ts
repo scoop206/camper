@@ -105,7 +105,7 @@ function applyDefaults(config: CamperConfig, root: string): CamperConfig {
         agent.worktree ??
         (agent.role === 'coordinator'
           ? resolve(root, config.repos[Object.keys(config.repos)[0]]?.path ?? '.')
-          : resolve(root, `${agent.repo ?? config.session}-${agent.name}`)),
+          : resolve(root, `${config.session}-${agent.name}`)),
     })),
   };
 }

@@ -28,7 +28,7 @@ export function start(config: CamperConfig, root: string): void {
   // Agent windows
   for (const agent of config.agents) {
     if (agent.role === 'coordinator') continue;
-    const resolved = agent.worktree ?? resolve(root, `${session}-${agent.name}`);
+    const resolved = agent.worktree!;
     const cwd = existsSync(resolved) ? resolved : root;
     tmux.newWindow(session, agent.tmuxWindow!, cwd);
     tmux.send(session, agent.tmuxWindow!, config.claude!.command!);
