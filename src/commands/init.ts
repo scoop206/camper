@@ -402,7 +402,7 @@ export async function init(parentCwd: string = process.cwd()): Promise<void> {
 
   writeGitignore(cwd, repos, agents, session);
 
-  console.log('\n✅ camper workspace ready. Run: camper start\n');
+  console.log(`\n✅ camper workspace ready.\n\nRun:\n  cd ${session}\n  camper start\n`);
 }
 
 function seedClaudeSettings(dir: string): void {
