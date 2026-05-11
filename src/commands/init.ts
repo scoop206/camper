@@ -203,7 +203,7 @@ async function editServices(
 
 // ── main ─────────────────────────────────────────────────────────────────────
 
-export async function init(cwd: string = process.cwd()): Promise<void> {
+export async function init(parentCwd: string = process.cwd()): Promise<void> {
   const { createInterface } = await import('readline');
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q: string): Promise<string> => new Promise((resolve) => rl.question(q, resolve));
@@ -212,6 +212,7 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
 
   let workspace: string;
   let session: string;
+  let workspaceGithub: string | undefined;
   let repos: Record<string, Repo>;
   let bossName: string;
   let agents: Agent[];
@@ -222,6 +223,9 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
     session =
       (await ask(`tmux session name [${workspace.toLowerCase().replace(/\s+/g, '-')}]: `)).trim() ||
       workspace.toLowerCase().replace(/\s+/g, '-');
+
+    const githubRaw = (await ask('Workspace github remote (optional): ')).trim();
+    workspaceGithub = githubRaw ? normalizeGithub(githubRaw) : undefined;
 
     repos = await editRepos(ask, {});
 
@@ -242,6 +246,29 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
     rl.close();
   }
 
+  // Create (or clone) the workspace directory
+  const cwd = resolve(parentCwd, session);
+  if (!existsSync(cwd)) {
+    if (workspaceGithub) {
+      console.log(`\nCloning workspace ${workspaceGithub} → ${session}/`);
+      execFileSync('git', ['clone', cloneUrl(workspaceGithub), cwd]);
+    } else {
+      console.log(`\nCreating workspace directory ${session}/`);
+      mkdirSync(cwd, { recursive: true });
+      execFileSync('git', ['init'], { cwd });
+    }
+  } else {
+    console.log(`\n✓ Workspace directory ${session}/ already exists`);
+    // Wire up remote if not already set and github was provided
+    if (workspaceGithub) {
+      try {
+        execFileSync('git', ['remote', 'add', 'origin', cloneUrl(workspaceGithub)], { cwd, stdio: 'ignore' });
+      } catch {
+        // remote already exists
+      }
+    }
+  }
+
   // Write camper.json
   const config: CamperConfig = {
     workspace,
@@ -256,7 +283,7 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
 
   const configPath = join(cwd, 'camper.json');
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  console.log(`\n✓ Wrote camper.json`);
+  console.log(`✓ Wrote ${session}/camper.json`);
 
   // Clone repos and set up worktrees
   for (const [repoName, repo] of Object.entries(repos)) {
