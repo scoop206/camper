@@ -1,7 +1,7 @@
 {
   "name": "camper",
   "version": "0.1.0",
-  "description": "Multi-agent Claude Code team manager",
+  "description": "Scaffold a multi-agent Claude Code team manager that uses tmux and beads",
   "type": "module",
   "bin": {
     "camper": "./dist/bin/camper.js"
