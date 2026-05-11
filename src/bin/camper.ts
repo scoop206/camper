@@ -27,7 +27,7 @@ program
 
 program
   .command('sync')
-  .description('Regenerate CLAUDE.md from camper.json and push to all agent branches')
+  .description('Regenerate CLAUDE.md from camper.json, push to all agent branches, and write agent identities to beads')
   .action(() => {
     const { config, root } = loadConfig();
     sync(config, root);
