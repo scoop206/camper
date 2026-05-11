@@ -9,6 +9,7 @@ import { status } from '../commands/status.js';
 import { startWatcher } from '../watcher.js';
 import { killSession } from '../tmux.js';
 import { init } from '../commands/init.js';
+import { sync } from '../commands/sync.js';
 
 const program = new Command();
 
@@ -22,6 +23,14 @@ program
   .description('Scaffold a new camper workspace interactively')
   .action(async () => {
     await init(process.cwd());
+  });
+
+program
+  .command('sync')
+  .description('Regenerate CLAUDE.md from camper.json and push to all agent branches')
+  .action(() => {
+    const { config, root } = loadConfig();
+    sync(config, root);
   });
 
 program
