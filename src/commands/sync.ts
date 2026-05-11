@@ -123,7 +123,7 @@ function agentSection(agent: Agent, config: CamperConfig): string {
       : '';
 
   const reviewedAgent = agent.reviews ? config.agents.find((a) => a.name === agent.reviews) : null;
-  const reviewedBranch = reviewedAgent?.branch ?? (agent.reviews ? `agent/${agent.reviews}` : '<author-branch>');
+  const reviewedBranch = reviewedAgent?.branch ?? (agent.reviews ? `agent/${agent.reviews}` : '<developer-branch>');
 
   const branchSection =
     agent.role === 'coordinator'
@@ -131,7 +131,7 @@ function agentSection(agent: Agent, config: CamperConfig): string {
       : agent.role === 'qa'
         ? `### Branch
 
-\`${agent.branch ?? `agent/${agent.name}`}\` — QA staging area. Check out the author's branch in detached HEAD mode before testing:
+\`${agent.branch ?? `agent/${agent.name}`}\` — QA staging area. Check out the developer's branch in detached HEAD mode before testing:
 
 \`\`\`bash
 git fetch origin

@@ -128,11 +128,11 @@ async function editAgents(
       const repoInput = (await ask(`  repo [${repoNames.join('/')}]: `)).trim();
       const repo = repos[repoInput] ? repoInput : repoNames[0];
 
-      const roleInput = (await ask(`  role [author/qa]: `)).trim();
-      const role = roleInput === 'qa' ? 'qa' : 'author';
+      const roleInput = (await ask(`  role [developer/qa]: `)).trim();
+      const role = roleInput === 'qa' ? 'qa' : 'developer';
 
       const reviewedBy =
-        role === 'author'
+        role === 'developer'
           ? (await ask(`  who QAs '${name}'? (optional): `)).trim() || undefined
           : undefined;
       const reviews =
@@ -237,7 +237,7 @@ export async function init(parentCwd: string = process.cwd()): Promise<void> {
         role: 'coordinator',
         repo: null,
         description:
-          'Project coordinator. Directs the agent team, breaks down work, owns merges to master in each repo. Never implements features directly — delegates to authors.',
+          'Project coordinator. Directs the agent team, breaks down work, owns merges to master in each repo. Never implements features directly — delegates to developers.',
       },
     ], repos);
 

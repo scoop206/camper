@@ -8,7 +8,7 @@ export interface Repo {
 
 export interface Agent {
   name: string;
-  role: 'coordinator' | 'author' | 'qa';
+  role: 'coordinator' | 'developer' | 'qa';
   repo: string | null; // null = coordinator, operates across repos
   branch?: string; // defaults to agent/<name>
   worktree?: string; // defaults to ../<workspace>-<name>
