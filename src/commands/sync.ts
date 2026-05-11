@@ -2,6 +2,7 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolve, join } from 'path';
 import { execFileSync } from 'child_process';
 import type { CamperConfig, Agent } from '../config.js';
+import { getReviewer } from '../config.js';
 
 export function sync(config: CamperConfig, root: string): void {
   const content = generateSupersetClaudeMd(config);
@@ -116,8 +117,9 @@ function agentSection(agent: Agent, config: CamperConfig): string {
           .join(', ')
       : (agent.worktree ?? `../${config.session}-${agent.name}`);
 
-  const reviewInfo = agent.reviewedBy
-    ? `**${agent.reviewedBy}** reviews your output before it ships to master.`
+  const reviewer = getReviewer(config, agent.name);
+  const reviewInfo = reviewer
+    ? `**${reviewer.name}** reviews your output before it ships to master.`
     : agent.reviews
       ? `You review **${agent.reviews}**'s output.`
       : '';

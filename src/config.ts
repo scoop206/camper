@@ -12,8 +12,7 @@ export interface Agent {
   repo: string | null; // null = coordinator, operates across repos
   branch?: string; // defaults to agent/<name>
   worktree?: string; // defaults to ../<workspace>-<name>
-  reviewedBy?: string; // agent name that QAs this agent's output
-  reviews?: string; // agent name this agent QAs
+  reviews?: string; // qa agent: name of the developer this agent reviews
   description: string; // injected into CLAUDE.md
 }
 
@@ -66,9 +65,6 @@ function validateConfig(config: CamperConfig): void {
     if (agent.repo !== null && !repoNames.has(agent.repo)) {
       throw new Error(`Invalid config: agent '${agent.name}' references unknown repo '${agent.repo}'`);
     }
-    if (agent.reviewedBy && !agentNames.has(agent.reviewedBy)) {
-      throw new Error(`Invalid config: agent '${agent.name}' reviewedBy unknown agent '${agent.reviewedBy}'`);
-    }
     if (agent.reviews && !agentNames.has(agent.reviews)) {
       throw new Error(`Invalid config: agent '${agent.name}' reviews unknown agent '${agent.reviews}'`);
     }
@@ -114,6 +110,10 @@ export function getCoordinator(config: CamperConfig): Agent {
   const coord = config.agents.find((a) => a.name === config.coordinator);
   if (!coord) throw new Error(`Coordinator '${config.coordinator}' not found in agents`);
   return coord;
+}
+
+export function getReviewer(config: CamperConfig, agentName: string): Agent | undefined {
+  return config.agents.find((a) => a.reviews === agentName);
 }
 
 export function getAgent(config: CamperConfig, name: string): Agent {

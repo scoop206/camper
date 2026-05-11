@@ -92,6 +92,12 @@ async function editRepos(
 
 // ── agent editor ─────────────────────────────────────────────────────────────
 
+function pairLabel(agent: Agent, agents: Agent[]): string {
+  if (agent.reviews) return `→ ${agent.reviews}`;
+  const reviewer = agents.find((a) => a.reviews === agent.name);
+  return reviewer ? `← ${reviewer.name}` : '-';
+}
+
 async function editAgents(
   ask: (q: string) => Promise<string>,
   initial: Agent[],
@@ -102,16 +108,16 @@ async function editAgents(
   while (true) {
     console.log('\nAgents:');
     printTable(
-      ['Name', 'Role', 'Repo', 'Rel', 'Description'],
+      ['Name', 'Role', 'Repo', 'Pair', 'Description'],
       agents.map((a) => [
         a.name,
         a.role,
         a.repo ?? '-',
-        a.reviewedBy ? `← ${a.reviewedBy}` : a.reviews ? `→ ${a.reviews}` : '-',
+        pairLabel(a, agents),
         a.description.slice(0, 40) + (a.description.length > 40 ? '…' : ''),
       ]),
     );
-    console.log('  [a]dd  [r]remove  [enter] done');
+    console.log('  [a]dd agent  [p]air agents  [u]npair  [r]emove  [enter] done');
 
     const cmd = (await ask('  > ')).trim().toLowerCase();
     if (!cmd) break;
@@ -131,17 +137,27 @@ async function editAgents(
       const roleInput = (await ask(`  role [developer/qa]: `)).trim();
       const role = roleInput === 'qa' ? 'qa' : 'developer';
 
-      const reviewedBy =
-        role === 'developer'
-          ? (await ask(`  who QAs '${name}'? (optional): `)).trim() || undefined
-          : undefined;
-      const reviews =
-        role === 'qa'
-          ? (await ask(`  who does '${name}' review? (optional): `)).trim() || undefined
-          : undefined;
-
       const description = (await ask(`  description: `)).trim();
-      agents.push({ name, role, repo, description, reviewedBy, reviews });
+      agents.push({ name, role, repo, description });
+    } else if (cmd === 'p') {
+      const devName = (await ask('  developer agent: ')).trim();
+      const qaName = (await ask('  qa agent: ')).trim();
+      const dev = agents.find((a) => a.name === devName);
+      const qa = agents.find((a) => a.name === qaName);
+      if (!dev) { console.log(`  Unknown agent '${devName}'`); continue; }
+      if (!qa) { console.log(`  Unknown agent '${qaName}'`); continue; }
+      // Clear any existing reviews pointing at these agents
+      for (const a of agents) {
+        if (a.reviews === devName || a.reviews === qaName) delete a.reviews;
+      }
+      qa.reviews = devName;
+      console.log(`  ✓ ${qaName} will review ${devName}`);
+    } else if (cmd === 'u') {
+      const qaName = (await ask('  qa agent to unpair: ')).trim();
+      const qa = agents.find((a) => a.name === qaName);
+      if (!qa) { console.log(`  Unknown agent '${qaName}'`); continue; }
+      delete qa.reviews;
+      console.log(`  ✓ ${qaName} unpaired`);
     } else if (cmd === 'r') {
       const name = (await ask('  agent name to remove: ')).trim();
       const idx = agents.findIndex((a) => a.name === name);
@@ -150,6 +166,10 @@ async function editAgents(
       } else if (agents[idx].role === 'coordinator') {
         console.log(`  Cannot remove the coordinator`);
       } else {
+        // Clear any reviews relationship involving this agent
+        for (const a of agents) {
+          if (a.reviews === name) delete a.reviews;
+        }
         agents.splice(idx, 1);
       }
     }
