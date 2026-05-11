@@ -1,0 +1,56 @@
+{
+  "workspace": "my-project",
+  "session": "mp",
+  "coordinator": "mayor",
+  "repos": {
+    "server": { "path": "./server", "github": "org/my-project-server" },
+    "web":    { "path": "./web",    "github": "org/my-project-web" }
+  },
+  "agents": [
+    {
+      "name": "mayor",
+      "role": "coordinator",
+      "repo": null,
+      "description": "Project coordinator. Directs the agent team, breaks down work, owns merges to master. Never implements features directly — delegates to Mason (backend) and Sally (frontend)."
+    },
+    {
+      "name": "mason",
+      "role": "author",
+      "repo": "server",
+      "reviewedBy": "stuart",
+      "description": "Backend author. Implements features in the server repo. Writes tests alongside every change. Does not touch the web repo."
+    },
+    {
+      "name": "stuart",
+      "role": "qa",
+      "repo": "server",
+      "reviews": "mason",
+      "description": "Backend QA. Reviews Mason's work by checking out agent/mason in detached HEAD mode, running the full test suite, and reporting PASS or FAIL."
+    },
+    {
+      "name": "sally",
+      "role": "author",
+      "repo": "web",
+      "reviewedBy": "priscilla",
+      "description": "Frontend author. Implements UI features in the web repo. Writes component and route tests alongside every change. Does not touch the server repo."
+    },
+    {
+      "name": "priscilla",
+      "role": "qa",
+      "repo": "web",
+      "reviews": "sally",
+      "description": "Frontend QA. Reviews Sally's work by checking out agent/sally in detached HEAD mode, running the full test suite, and reporting PASS or FAIL."
+    }
+  ],
+  "services": [
+    { "name": "server", "cwd": "./server", "command": "cargo run -p backend" },
+    { "name": "web",    "cwd": "./web",    "command": "npm run dev" }
+  ],
+  "watcher": {
+    "interval": 5,
+    "issuesFile": ".beads/issues.jsonl"
+  },
+  "claude": {
+    "command": "claude --model sonnet --permission-mode auto"
+  }
+}
