@@ -391,7 +391,7 @@ export async function init(parentCwd: string = process.cwd()): Promise<void> {
   // Initialize beads at workspace root
   if (!existsSync(join(cwd, '.beads'))) {
     try {
-      execFileSync('bd', ['init'], { cwd, stdio: 'inherit' });
+      execFileSync('bd', ['init', '--role=maintainer'], { cwd, stdio: 'inherit' });
       console.log('\n✓ beads initialized');
     } catch {
       console.warn('\n⚠ bd not found — install beads and run bd init manually');
