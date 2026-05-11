@@ -358,11 +358,11 @@ export async function init(parentCwd: string = process.cwd()): Promise<void> {
 
     const repoAgents = agents.filter((a) => a.repo === repoName);
     for (const agent of repoAgents) {
-      const worktreePath = resolve(cwd, `${session}-${agent.name}`);
+      const worktreePath = resolve(cwd, `${repoName}-${agent.name}`);
       const branch = `agent/${agent.name}`;
 
       if (existsSync(worktreePath)) {
-        console.log(`  ✓ worktree ${session}-${agent.name} already exists`);
+        console.log(`  ✓ worktree ${repoName}-${agent.name} already exists`);
         continue;
       }
 
@@ -375,7 +375,7 @@ export async function init(parentCwd: string = process.cwd()): Promise<void> {
 
       try {
         execFileSync('git', ['worktree', 'add', worktreePath, branch], { cwd: repoPath });
-        console.log(`  ✓ created worktree ${session}-${agent.name} (${branch})`);
+        console.log(`  ✓ created worktree ${repoName}-${agent.name} (${branch})`);
       } catch (err) {
         console.warn(`  ⚠ could not create worktree for ${agent.name}:`, err);
       }
@@ -400,7 +400,7 @@ export async function init(parentCwd: string = process.cwd()): Promise<void> {
     console.log('\n✓ beads already initialized');
   }
 
-  writeGitignore(cwd, repos, agents, session);
+  writeGitignore(cwd, repos, agents);
 
   console.log(`\n✅ camper workspace ready.\n\nRun:\n  cd ${session}\n  camper start\n`);
 }
@@ -419,12 +419,11 @@ function writeGitignore(
   cwd: string,
   repos: Record<string, Repo>,
   agents: Agent[],
-  session: string,
 ): void {
   const lines = [
     '# camper — sub-repos and worktrees',
     ...Object.values(repos).map((r) => r.path.replace(/^\.\//, '')),
-    ...agents.filter((a) => a.repo).map((a) => `${session}-${a.name}`),
+    ...agents.filter((a) => a.repo).map((a) => `${a.repo}-${a.name}`),
     '',
     '# beads state (committed intentionally — remove this line to track)',
     '# .beads/',
