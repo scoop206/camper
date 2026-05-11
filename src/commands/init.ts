@@ -93,9 +93,9 @@ async function editRepos(
 // ── agent editor ─────────────────────────────────────────────────────────────
 
 function pairLabel(agent: Agent, agents: Agent[]): string {
-  if (agent.reviews) return `→ ${agent.reviews}`;
+  if (agent.reviews) return `← ${agent.reviews}`;
   const reviewer = agents.find((a) => a.reviews === agent.name);
-  return reviewer ? `← ${reviewer.name}` : '-';
+  return reviewer ? `→ ${reviewer.name}` : '-';
 }
 
 async function editAgents(
