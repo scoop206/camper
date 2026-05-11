@@ -13,10 +13,7 @@ import { sync } from '../commands/sync.js';
 
 const program = new Command();
 
-program
-  .name('camper')
-  .description('Multi-agent Claude Code team manager')
-  .version('0.1.0');
+program.name('camper').description('Multi-agent Claude Code team manager').version('0.1.0');
 
 program
   .command('init')

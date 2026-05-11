@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { resolve, join } from 'path';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { CamperConfig, Agent, Repo } from '../config.js';
 
 const CLAUDE_SETTINGS = {
@@ -13,82 +13,94 @@ const CLAUDE_SETTINGS = {
 export async function init(cwd: string = process.cwd()): Promise<void> {
   const { createInterface } = await import('readline');
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const ask = (q: string): Promise<string> =>
-    new Promise(resolve => rl.question(q, resolve));
+  const ask = (q: string): Promise<string> => new Promise((resolve) => rl.question(q, resolve));
 
   console.log('\n🏕  camper init\n');
 
-  // Workspace name
-  const workspace = (await ask('Workspace name (e.g. my-project): ')).trim();
-  const session = (await ask(`tmux session name [${workspace.toLowerCase().replace(/\s+/g, '-')}]: `)).trim()
-    || workspace.toLowerCase().replace(/\s+/g, '-');
+  let workspace: string;
+  let session: string;
+  let repos: Record<string, Repo>;
+  let bossName: string;
+  let agents: Agent[];
+  let services: Array<{ name: string; cwd: string; command: string }>;
 
-  // Repos
-  console.log('\nDefine your sub-repositories (empty name to finish):');
-  const repos: Record<string, Repo> = {};
-  while (true) {
-    const name = (await ask('  repo name (e.g. server, web): ')).trim();
-    if (!name) break;
-    const path = (await ask(`  path for '${name}' [./${name}]: `)).trim() || `./${name}`;
-    const github = (await ask(`  github remote for '${name}' (optional): `)).trim();
-    repos[name] = { path, ...(github ? { github } : {}) };
-  }
+  try {
+    // Workspace name
+    workspace = (await ask('Workspace name (e.g. my-project): ')).trim();
+    session =
+      (await ask(`tmux session name [${workspace.toLowerCase().replace(/\s+/g, '-')}]: `)).trim() ||
+      workspace.toLowerCase().replace(/\s+/g, '-');
 
-  if (Object.keys(repos).length === 0) {
-    console.error('At least one repo is required.');
+    // Repos
+    console.log('\nDefine your sub-repositories (empty name to finish):');
+    repos = {};
+    while (true) {
+      const name = (await ask('  repo name (e.g. server, web): ')).trim();
+      if (!name) break;
+      const path = (await ask(`  path for '${name}' [./${name}]: `)).trim() || `./${name}`;
+      const github = (await ask(`  github remote for '${name}' (optional): `)).trim();
+      repos[name] = { path, ...(github ? { github } : {}) };
+    }
+
+    if (Object.keys(repos).length === 0) {
+      console.error('At least one repo is required.');
+      return;
+    }
+
+    // Coordinator (boss)
+    bossName = (await ask('\nCoordinator agent name [boss]: ')).trim() || 'boss';
+
+    // Agents
+    console.log(
+      '\nDefine your agents (empty name to finish). Add coordinator first if you want custom description:',
+    );
+    agents = [
+      {
+        name: bossName,
+        role: 'coordinator',
+        repo: null,
+        description: `Project coordinator. Directs the agent team, breaks down work, owns merges to master in each repo. Never implements features directly — delegates to authors.`,
+      },
+    ];
+
+    while (true) {
+      const name = (await ask('  agent name (e.g. mason, sally): ')).trim();
+      if (!name) break;
+
+      const repoNames = Object.keys(repos);
+      const repoInput = (await ask(`  repo [${repoNames.join('/')}]: `)).trim();
+      const repo = repos[repoInput] ? repoInput : repoNames[0];
+
+      const roleInput = (await ask(`  role for '${name}' [author/qa]: `)).trim();
+      const role = roleInput === 'qa' ? 'qa' : 'author';
+
+      const reviewedBy =
+        role === 'author'
+          ? (await ask(`  who QAs '${name}'? (agent name, optional): `)).trim() || undefined
+          : undefined;
+      const reviews =
+        role === 'qa'
+          ? (await ask(`  who does '${name}' review? (agent name, optional): `)).trim() || undefined
+          : undefined;
+
+      const description = (await ask(`  one-line description for '${name}': `)).trim();
+
+      agents.push({ name, role, repo, description, reviewedBy, reviews });
+    }
+
+    // Services
+    console.log('\nDefine service windows (empty name to finish):');
+    services = [];
+    while (true) {
+      const name = (await ask('  service name (e.g. backend, vite): ')).trim();
+      if (!name) break;
+      const serviceCwd = (await ask(`  cwd for '${name}' [./${name}]: `)).trim() || `./${name}`;
+      const command = (await ask(`  start command for '${name}': `)).trim();
+      services.push({ name, cwd: serviceCwd, command });
+    }
+  } finally {
     rl.close();
-    return;
   }
-
-  // Coordinator (boss)
-  const bossName = (await ask('\nCoordinator agent name [boss]: ')).trim() || 'boss';
-
-  // Agents
-  console.log('\nDefine your agents (empty name to finish). Add coordinator first if you want custom description:');
-  const agents: Agent[] = [
-    {
-      name: bossName,
-      role: 'coordinator',
-      repo: null,
-      description: `Project coordinator. Directs the agent team, breaks down work, owns merges to master in each repo. Never implements features directly — delegates to authors.`,
-    },
-  ];
-
-  while (true) {
-    const name = (await ask('  agent name (e.g. mason, sally): ')).trim();
-    if (!name) break;
-
-    const repoNames = Object.keys(repos);
-    const repoInput = (await ask(`  repo [${repoNames.join('/')}]: `)).trim();
-    const repo = repos[repoInput] ? repoInput : repoNames[0];
-
-    const roleInput = (await ask(`  role for '${name}' [author/qa]: `)).trim();
-    const role = roleInput === 'qa' ? 'qa' : 'author';
-
-    const reviewedBy = role === 'author'
-      ? (await ask(`  who QAs '${name}'? (agent name, optional): `)).trim() || undefined
-      : undefined;
-    const reviews = role === 'qa'
-      ? (await ask(`  who does '${name}' review? (agent name, optional): `)).trim() || undefined
-      : undefined;
-
-    const description = (await ask(`  one-line description for '${name}': `)).trim();
-
-    agents.push({ name, role, repo, description, reviewedBy, reviews });
-  }
-
-  // Services
-  console.log('\nDefine service windows (empty name to finish):');
-  const services: Array<{ name: string; cwd: string; command: string }> = [];
-  while (true) {
-    const name = (await ask('  service name (e.g. backend, vite): ')).trim();
-    if (!name) break;
-    const serviceCwd = (await ask(`  cwd for '${name}' [./${name}]: `)).trim() || `./${name}`;
-    const command = (await ask(`  start command for '${name}': `)).trim();
-    services.push({ name, cwd: serviceCwd, command });
-  }
-
-  rl.close();
 
   // Write camper.json
   const config: CamperConfig = {
@@ -113,7 +125,7 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
     if (!existsSync(repoPath)) {
       if (repo.github) {
         console.log(`\nCloning ${repo.github} → ${repo.path}`);
-        execSync(`git clone git@github.com:${repo.github}.git ${repoPath}`);
+        execFileSync('git', ['clone', `git@github.com:${repo.github}.git`, repoPath]);
       } else {
         console.log(`\nCreating empty repo at ${repo.path}`);
         mkdirSync(repoPath, { recursive: true });
@@ -124,7 +136,7 @@ export async function init(cwd: string = process.cwd()): Promise<void> {
     }
 
     // Set up worktrees for agents assigned to this repo
-    const repoAgents = agents.filter(a => a.repo === repoName);
+    const repoAgents = agents.filter((a) => a.repo === repoName);
     for (const agent of repoAgents) {
       const worktreePath = resolve(cwd, `${session}-${agent.name}`);
       const branch = `agent/${agent.name}`;
@@ -194,8 +206,8 @@ function writeGitignore(
 ): void {
   const lines = [
     '# camper — sub-repos and worktrees',
-    ...Object.values(repos).map(r => r.path.replace(/^\.\//, '')),
-    ...agents.filter(a => a.repo).map(a => `${session}-${a.name}`),
+    ...Object.values(repos).map((r) => r.path.replace(/^\.\//, '')),
+    ...agents.filter((a) => a.repo).map((a) => `${session}-${a.name}`),
     '',
     '# beads state (committed intentionally — remove this line to track)',
     '# .beads/',
@@ -206,7 +218,10 @@ function writeGitignore(
   const gitignorePath = join(cwd, '.gitignore');
   const existing = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf-8') : '';
   if (!existing.includes('# camper')) {
-    writeFileSync(gitignorePath, existing + (existing.endsWith('\n') ? '' : '\n') + lines.join('\n') + '\n');
+    writeFileSync(
+      gitignorePath,
+      existing + (existing.endsWith('\n') ? '' : '\n') + lines.join('\n') + '\n',
+    );
     console.log('\n✓ updated .gitignore');
   }
 }

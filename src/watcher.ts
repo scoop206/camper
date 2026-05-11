@@ -46,7 +46,7 @@ export function startWatcher(config: CamperConfig, root: string): void {
     lastCheck = now;
   });
 
-  watcher.on('error', err => console.error('[camper-watch] watcher error:', err));
+  watcher.on('error', (err) => console.error('[camper-watch] watcher error:', err));
 }
 
 function getNewlyClosedIssues(root: string, since: number): Issue[] {
@@ -56,12 +56,13 @@ function getNewlyClosedIssues(root: string, since: number): Issue[] {
       encoding: 'utf-8',
     });
     const issues = JSON.parse(out) as Issue[];
-    return issues.filter(issue => {
+    return issues.filter((issue) => {
       if (!issue.closed_at) return false;
       const ts = Math.floor(new Date(issue.closed_at).getTime() / 1000);
-      return ts > since;
+      return ts >= since;
     });
-  } catch {
+  } catch (err) {
+    console.error('[camper-watch] bd list failed:', err);
     return [];
   }
 }

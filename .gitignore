@@ -3,5 +3,12 @@ dist/
 
 # Beads / Dolt files (added by bd init)
 .dolt/
+**/.dolt/
 *.db
 .beads-credential-key
+.beads/embeddeddolt/
+.beads/interactions.jsonl
+.beads/last-touched
+.beads/export-state.json
+.beads/.local_version
+.beads/embeddeddolt/

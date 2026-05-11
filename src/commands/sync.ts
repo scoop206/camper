@@ -19,7 +19,7 @@ export function sync(config: CamperConfig, root: string): void {
       continue;
     }
 
-    const repoAgents = config.agents.filter(a => a.repo === repoName);
+    const repoAgents = config.agents.filter((a) => a.repo === repoName);
 
     // Also push to main branch of repo (coordinator works here)
     pushToRef(repoPath, content, 'HEAD', `${repoName}/main`);
@@ -54,8 +54,10 @@ function pushToRef(repoPath: string, content: string, branch: string, label: str
     }
     writeFileSync(claudePath, content);
     execFileSync('git', ['add', 'CLAUDE.md'], { cwd: worktreePath });
-    execFileSync('git', ['commit', '-m', 'chore: sync CLAUDE.md from camper'], { cwd: worktreePath });
-    execFileSync('git', ['push'], { cwd: worktreePath });
+    execFileSync('git', ['commit', '-m', 'chore: sync CLAUDE.md from camper'], {
+      cwd: worktreePath,
+    });
+    execFileSync('git', ['push', '--set-upstream', 'origin', branch], { cwd: worktreePath });
     console.log(`  ✓ ${label} — synced and pushed`);
   } else {
     console.log(`  — ${label} worktree not found, skipping push (run camper init first)`);
@@ -71,10 +73,11 @@ function getWorktreePath(repoPath: string, branch: string): string | null {
     const entries = out.trim().split('\n\n');
     for (const entry of entries) {
       const lines = Object.fromEntries(
-        entry.split('\n').map(l => {
+        entry.split('\n').map((l) => {
           const idx = l.indexOf(' ');
+          if (idx === -1) return [l, ''];
           return [l.slice(0, idx), l.slice(idx + 1)];
-        })
+        }),
       );
       if (lines['branch'] === `refs/heads/${branch}`) {
         return lines['worktree'] ?? null;
@@ -85,7 +88,7 @@ function getWorktreePath(repoPath: string, branch: string): string | null {
 }
 
 function generateSupersetClaudeMd(config: CamperConfig): string {
-  const sections = config.agents.map(agent => agentSection(agent, config));
+  const sections = config.agents.map((agent) => agentSection(agent, config));
 
   return `# ${config.workspace} — Agent Instructions
 
@@ -106,29 +109,35 @@ ${beadsSection()}
 }
 
 function agentSection(agent: Agent, config: CamperConfig): string {
-  const repo = agent.repo ? config.repos[agent.repo] : null;
-  const worktreeHint = agent.role === 'coordinator'
-    ? Object.values(config.repos).map(r => r.path).join(', ')
-    : agent.worktree ?? `../${config.session}-${agent.name}`;
+  const worktreeHint =
+    agent.role === 'coordinator'
+      ? Object.values(config.repos)
+          .map((r) => r.path)
+          .join(', ')
+      : (agent.worktree ?? `../${config.session}-${agent.name}`);
 
   const reviewInfo = agent.reviewedBy
     ? `**${agent.reviewedBy}** reviews your output before it ships to master.`
     : agent.reviews
-    ? `You review **${agent.reviews}**'s output.`
-    : '';
+      ? `You review **${agent.reviews}**'s output.`
+      : '';
 
-  const branchSection = agent.role === 'coordinator'
-    ? `### Branch\n\nWork directly on \`master\` in each repo.`
-    : agent.role === 'qa'
-    ? `### Branch
+  const reviewedAgent = agent.reviews ? config.agents.find((a) => a.name === agent.reviews) : null;
+  const reviewedBranch = reviewedAgent?.branch ?? (agent.reviews ? `agent/${agent.reviews}` : '<author-branch>');
+
+  const branchSection =
+    agent.role === 'coordinator'
+      ? `### Branch\n\nWork directly on \`master\` in each repo.`
+      : agent.role === 'qa'
+        ? `### Branch
 
 \`${agent.branch ?? `agent/${agent.name}`}\` — QA staging area. Check out the author's branch in detached HEAD mode before testing:
 
 \`\`\`bash
 git fetch origin
-git checkout --detach origin/${agent.reviews ? `agent/${agent.reviews}` : '<author-branch>'}
+git checkout --detach origin/${reviewedBranch}
 \`\`\``
-    : `### Branch
+        : `### Branch
 
 \`${agent.branch ?? `agent/${agent.name}`}\` — all your work stays here until ${config.coordinator} merges it to \`master\`.
 
@@ -137,7 +146,10 @@ git fetch origin
 git rebase origin/master
 \`\`\``;
 
-  const signalingSection = agent.role === 'coordinator' ? '' : `
+  const signalingSection =
+    agent.role === 'coordinator'
+      ? ''
+      : `
 ### Signalling Completion
 
 1. Close your beads issue: \`bd close <issue-id>${agent.role === 'qa' ? ' --reason="PASS"' : ''}\`
@@ -154,8 +166,8 @@ ${signalingSection}
 ### Team
 
 ${config.agents
-  .filter(a => a.name !== agent.name)
-  .map(a => `- **${titleCase(a.name)}** — ${a.description.split('.')[0]}`)
+  .filter((a) => a.name !== agent.name)
+  .map((a) => `- **${titleCase(a.name)}** — ${a.description.split('.')[0]}`)
   .join('\n')}
 `;
 }
