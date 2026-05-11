@@ -15,7 +15,7 @@ const program = new Command();
 
 program
   .name('camper')
-  .description('Scaffold a multi-agent Claude Code team manager that uses tmux and beads')
+  .description('Scaffold and manage a multi-agent Claude Code team that uses tmux and beads')
   .version('0.1.0');
 
 program
