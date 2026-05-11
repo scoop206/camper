@@ -190,7 +190,7 @@ async function editAgents(
           ? agents.find((a) => a.name === agents[idx].reviews)
           : agents.find((a) => a.reviews === name);
       if (partner) {
-        const confirm = (await ask(`  ⚠ '${name}' and '${partner.name}' are a pair. BOTH will be removed. Proceed? [y/n]: `)).trim().toLowerCase();
+        const confirm = (await ask(`  ⚠ '${name}' and '${partner.name}' are a pair. Both will be removed. Proceed? [y/n]: `)).trim().toLowerCase();
         if (confirm !== 'y') {
           console.log('  Cancelled.');
           continue;
